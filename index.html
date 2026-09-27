@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>CARTA Outdoor Recreation Map</title>
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@6.3.0/dist/maplibre-gl.css' />
+    <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.css"/>
+    <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,1..1000&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: "Google Sans Flex", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 300;
+            font-style: normal;
+            font-variation-settings:
+                "slnt" 0,
+                "wdth" 100,
+                "GRAD" 0,
+                "ROND" 0;
+        }
+    </style>
+
+    <style id="maplibgre-geocoder-overrides">
+        .maplibregl-ctrl-top-left {
+            z-index: 8;
+        }
+
+        .maplibregl-ctrl-top-left .maplibregl-ctrl {
+            max-width: calc(100% - 75px);
+        }
+
+        @media screen and (max-width: 640.5px) {
+            .maplibregl-ctrl-group button {
+                height: 50px;
+                min-width: 50px;
+            }
+        }
+
+        @media screen and (min-width: 640.5px) {
+            .maplibregl-ctrl-group button {
+                height: 36px;
+                min-width: 36px;
+            }
+        }
+    </style>
+
+    <script>
+        /*
+            z-index:
+            15 - search suggestions
+            14 - map popup
+            13 - filtered marker
+            12 - map overlay
+            11 - 
+            10 - header
+            9 - left panel and right panel
+            8 - .maplibregl-ctrl-top-left - geocoder suggestions
+            7 - marker
+        */
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            bottom: 0;
+            left: 0;
+            margin: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+        }
+
+        html, body, #map { height: 100%; }
+
+        #map-overlay {
+            background: black;
+            bottom: 0;
+            height: 100%;
+            left: 0;
+            opacity: 0.5;
+            pointer-events: none;
+            position: absolute;
+            right: 0;
+            top: 0;
+            z-index: 12;
+        }
+        #app[data-map-filter="null"] #map-overlay {
+            display: none;
+        }
+
+        .maplibregl-popup {
+            background: none;
+            max-width: fit-content !important;
+            z-index: 14;
+        }
+
+        .maplibregl-popup-content {
+            background: none;
+            padding: 0;
+        }
+
+        header {
+            /* background: red; */
+            box-shadow: 0px 2px 4px rgba(0,0,0,.5);
+            height: 50px;
+            left: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            z-index: 10;
+        }
+        #header-content {
+            left: 25px;
+            height: 40px;
+            position: absolute;
+            right: 25px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: calc(100% - 25px - 25px);
+        }
+        #header-content-left {
+            display: block;
+            height: 40px;
+            position: absolute;
+            width: 75%;
+        }
+        #header-content-left-logo {
+            display: inline-block;
+            height: 40px;
+            position: relative;
+            vertical-align: middle;
+        }
+        #header-content-left-title {
+            display: inline-block;
+            height: 50px;
+            margin-left: 5px;
+            position: absolute;
+            vertical-align: middle;
+        }
+        #header-content-left-title-upper {
+            color: #32393f;
+            font-size: 8pt;
+        }
+
+        #header-content-left-title-bottom {
+            color: #001f45;
+            font-size: 16pt;
+            font-weight: bold;
+        }
+ 
+        #header-content-right {
+            left: auto;
+            position: absolute;
+            right: 0;
+        }
+        #header-content-right-title {
+            color: #0f61cf;
+            font-weight: bold;
+        }
+        #header-content-right-subtitle {
+            color: black;
+        }
+
+        #middle {
+            bottom: 100px;
+            left: 0;
+            right: 0;
+            top: 50px;
+            position: absolute;
+        }
+
+        #map-wrapper {
+            bottom: 0px;
+            height: calc(100vh - 50px - 0px);
+            left: 0px;
+            position: absolute;
+            right: 150px;
+            top: 0px;
+            width: 100%;
+        }
+
+        .marker-shuttle {
+            border-radius: 25%;
+            box-shadow: -1px 0 3px rgba(0, 0, 0, 0.3);
+            height: 25px;
+            overflow: hidden;
+            width: 25px;
+        }
+
+        .marker-shuttle img {
+            height: 25px;
+            left: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 25px;
+        }
+
+        .marker {
+            background: black; /* likely overwritten */
+            border: 2px solid white;
+            box-shadow: 0px 2px 4px rgba(0,0,0,.5);
+            color: whitesmoke;
+            height: 20px;
+            width: 20px;
+            z-index: 7;
+        }
+        .marker-inner {
+            left: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        footer {
+            background: #012647;
+            bottom: 0;
+            color: lightgrey;
+            height: 0px;
+            left: 0;
+            position: absolute;
+            right: 0;
+        }
+
+        footer ul {
+            height: 00px;
+            left: 20px;
+            margin: 0;
+            padding: 0;
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+        }
+
+        footer ul li {
+            display: inline-block;
+            height: 0px;
+            position: relative;
+            vertical-align: top;
+        }
+
+        footer ul li:not(:first-child) {
+            border-left: 1px solid lightgrey;
+        }
+
+        .footer-image-wrapper {
+            display: inline-block;
+            height: 100%;
+            margin-left: 15px;
+            position: relative;
+            width: 30px;
+        }
+
+        .footer-image-wrapper img {
+            left: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+        }
+
+        .footer-text-wrapper {
+            display: inline-block;
+            margin-left: 15px;
+            margin-right: 15px;
+            position: relative;
+            vertical-align: top;
+        }
+
+        .footer-text-heading {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .footer-text-description {
+            font-size: 10px;
+            font-weight: normal;
+        }
+
+        .footer-text-description a {
+            color: lightgray;
+            text-decoration: none;
+        }
+        .footer-text-description a:hover {
+            text-decoration: underline;
+        }
+
+        @media screen and (max-width: 1280.5px) {
+            footer li {
+                width: 22.5%
+            }
+        }
+        @media screen and (min-width: 1280.5px) {
+            footer li {
+                width: 20%
+            }
+        }
+        
+        @media screen and (max-width: 1000px) {
+            #middle {
+                bottom: 0px;
+            }
+            #map-wrapper {
+                bottom: 0;
+                height: calc(100% - 50px);
+                height: calc(100vh - 50px);
+                left: 0px;
+                right: 0px;
+                top: 0px;
+                width: 100%;
+            }
+            #header-content-left {
+                width: 100%;
+            }
+            #header-content-right {
+                display: none;
+            }
+            footer {
+                display: none;
+            }
+        }
+    </style>
+    <script>
+        // #002648
+        // #058D22
+        // #FEB901
+        // #D21410
+        window.app = {
+            data: {
+                addresses: null,
+                osm_pois: null,
+                overture_places: null,
+                validators: null
+            },
+            funcs: {
+                render_shuttle_routes: function () {
+
+                },
+                serialize_filter: function () {
+                    document.getElementById("app").setAttribute("data-map-filter", app.state.filter);
+                },
+                reset_map_filter: function () {
+                    console.log("resetting map filter");
+                    document.getElementById("app").setAttribute("data-map-filter", "null");                    
+                }
+            },
+            promises: {},
+            state: {
+                filter: null, // "first_hour_free", "validation_accepted", or "consumer_rate_guarantee"
+                markers: {
+                    buses: null
+                }
+            }
+        };
+
+        function zip (a, b) {
+            return a.map(function (it, i) {
+                return [it, b[i]];
+            });
+        }
+
+        async function load_tsv(url) {
+            const response = await fetch(url);
+            const data = await response.text();
+            let rows = data.split(/\r?\n/).map(row => row.split("\t"));
+            const header = rows.shift();
+            rows = rows.map(row => Object.fromEntries(zip(header, row)));
+            return rows;
+        }
+
+        app.promises.load_addresses = Promise.resolve((async function load_addresses () {
+            const url = "https://gocarta.s3.us-east-2.amazonaws.com/public/data/tn_ng911_address_points/v1/data.tsv";
+            const rows = await load_tsv(url);
+            app.data.addresses = rows.map(row => {
+                const address = `${row.Add_Number} ${row.StNam_Full}, TN ${row.Zip_Code}`.replace("  ", " ");
+                return ({
+                    type: "address",
+                    address: address,
+                    lookup: address.toLowerCase(),
+                    latitude: Number(row.Latitude),
+                    longitude: Number(row.Longitude),
+                });
+            });
+        })());
+
+        app.promises.load_osm_pois = Promise.resolve((async function load_osm_pois () {
+            const url = "https://gocarta.s3.us-east-2.amazonaws.com/public/data/osm_pois/v1/data.tsv";
+            const rows = await load_tsv(url);
+            const osm_pois = [];
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row.name) continue;
+                const poi = {
+                    type: "poi",
+                    osm_id: row["@id"],
+                    name: row.name,
+                    latitude: Number(row["@lat"]),
+                    longitude: Number(row["@lon"])
+                };
+
+                if (row["addr:housenumber"]) {
+                    poi.address = row["addr:housenumber"] + " " + row["addr:street"] + ", " + row["addr:city"] + ", " + row["addr:state"] + " " + row["addr:postcode"];
+                } else {
+                    poi.address = null;
+                }
+
+                poi.lookup = poi.name.toLowerCase() + (poi.address ? " " + poi.address.toLowerCase() : "");
+
+                osm_pois.push(poi);
+            }
+            app.data.osm_pois = osm_pois;
+        })());
+
+        app.promises.load_overture_places = Promise.resolve((async function load_overture_places () {
+            const url = "https://gocarta.s3.us-east-2.amazonaws.com/public/data/overture_places/v1/data.tsv";
+            const rows = await load_tsv(url);
+            const places = [];
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row.name) continue;
+                const place = {
+                    type: "place",
+                    id: row.id, // GERS ID
+                    name: row.name,
+                    address: row.address,
+                    latitude: Number(row["latitude"]),
+                    longitude: Number(row["longitude"])
+                };
+
+                place.lookup = place.name.toLowerCase() + " " + place.address.toLowerCase();
+
+                places.push(place);
+            }
+            app.data.overture_places = places;
+        })());
+    </script>
+
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.css"/>
+</head>
+<body id="app" data-map-filter="null">
+    <header>
+        <div id="header-content">
+            <div id="header-content-left">
+                <img id="header-content-left-logo" src="./public/assets/cropped-rwb-logo.webp">
+                <div id="header-content-left-title">
+                    <div id="header-content-left-title-upper">CARTA [DRAFT]</div>
+                    <div id="header-content-left-title-bottom">Outdoor Recreation Map</div>
+                </div>
+            </div>
+            <div id="header-content-right">
+                <div id="header-content-right-title"></div>
+                <div id="header-content-right-subtitle"></div>
+            </div>
+        </div>
+    </header>
+    <div id="middle">
+        <div id="map-wrapper">
+            <div id="map-overlay"></div>
+            <div id="map"></div>
+        </div>
+    </div>
+    <footer>
+    </footer>
+    <script type="module">
+        import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.9.0/dist/maplibre-gl.mjs';
+
+        const protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol('pmtiles', protocol.tile);
+
+        const PMTILES_URL = 'https://gocarta.s3.us-east-2.amazonaws.com/public/pmtiles/basemap.pmtiles';
+
+        const p = new pmtiles.PMTiles(PMTILES_URL);
+
+        protocol.add(p);
+
+        const map = new maplibregl.Map({
+            container: 'map',
+            zoom: 13.5,
+            center: [-85.3095658, 35.0449601],
+            style: "./outdoor_recreation.json"
+        });
+
+        const geocoderApi = {
+            forwardGeocode: async function (config) {
+                try {
+                    const q = config.query.toLowerCase();
+
+                    const gers_ids = [];
+                    const osm_ids = [];
+                    const features = [];
+
+                    const xmin = -85.3456729790683;
+                    const ymin = 34.98103278423423;
+                    const xmax = -85.28189755398803;
+                    const ymax = 35.080288228384305;
+
+                    if (app.data.overture_places) {
+                        for (let i = 0; i < app.data.overture_places.length; i++) {
+                            const place = app.data.overture_places[i];
+                            try {
+                                if (!place) continue;
+                                if (place.lookup.includes(q)) {
+                                    if (gers_ids.includes(place.id)) {
+                                        // console.log("skipping place because we already have seen this GERS ID");
+                                        continue;
+                                    }
+                                    // console.log("found:", place.name + " " + place.address, "in overture dataset: " + place.id);
+
+                                    // outside downtown area
+                                    if (place.longitude < xmin || place.longitude > xmax || place.latitude < ymin || place.latitude > ymax) continue;
+
+                                    const center = [place.longitude, place.latitude];
+                                    features.push({
+                                        type: 'Feature',
+                                        geometry: {
+                                            type: 'Point',
+                                            coordinates: center
+                                        },
+                                        // the geocoder renders lines in result items based on splitting the comma
+                                        // we add a comma to make sure the address is on the second line
+                                        // we also split the address preserving only the first part
+                                        // because we don't need to extend the width of the results a bunch just to say Chattanooga, TN 374##
+                                        place_name: place.name.replace(",", " ") + (place.address ? "," + place.address.split(",")[0] : ""),
+                                        properties: place,
+                                        text: place.name,
+                                        place_type: ['place'],
+                                        center
+                                    });
+                                    if (features.length >= 5) {
+                                        break;
+                                    }
+                                }
+                            } catch (err) {
+                                console.error(poi);
+                                throw err;
+                            }
+                        }
+                    }
+
+                    if (app.data.osm_pois) {
+                        for (let i = 0; i < app.data.osm_pois.length; i++) {
+                            const poi = app.data.osm_pois[i];
+                            try {
+                                if (!poi) continue;
+                                if (poi.lookup.includes(q)) {
+                                    if (osm_ids.includes(poi.osm_id)) {
+                                        // console.log("skipping poi because we already have seen this osm id");
+                                        continue;
+                                    }
+
+                                    // outside downtown area
+                                    if (poi.longitude < xmin || poi.longitude > xmax || poi.latitude < ymin || poi.latitude > ymax) continue;
+
+                                    const center = [poi.longitude, poi.latitude];
+                                    features.push({
+                                        type: 'Feature',
+                                        geometry: {
+                                            type: 'Point',
+                                            coordinates: center
+                                        },
+                                        // the geocoder renders lines in result items based on splitting the comma
+                                        // we add a comma to make sure the address is on the second line
+                                        // we also split the address preserving only the first part
+                                        // because we don't need to extend the width of the results a bunch just to say Chattanooga, TN 374##
+                                        place_name: poi.name.replace(",", " ") + (poi.address ? "," + poi.address.split(",")[0] : ""),
+                                        properties: poi,
+                                        text: poi.name,
+                                        place_type: ['place'],
+                                        center
+                                    });
+                                    if (features.length >= 5) {
+                                        break;
+                                    }
+                                }
+                            } catch (err) {
+                                console.error(poi);
+                                throw err;
+                            }
+                        }
+                    }
+
+                    if (app.data.addresses) {
+                        for (let i = 0; i < app.data.addresses.length; i++) {
+                            const address = app.data.addresses[i];
+                            if (!address) continue;
+                            if (address.lookup.includes(q)) {
+                                // outside downtown area
+                                if (address.longitude < xmin || address.longitude > xmax || address.latitude < ymin || address.latitude > ymax) continue;
+
+                                const center = [address.longitude, address.latitude];
+                                features.push({
+                                    type: 'Feature',
+                                    geometry: {
+                                        type: 'Point',
+                                        coordinates: center
+                                    },
+                                    place_name: address.address,
+                                    properties: address,
+                                    text: address.address,
+                                    place_type: ['place'],
+                                    center
+                                });
+                                if (features.length >= 5) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // console.log("features:", features);
+
+                    return {
+                        features
+                    };
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+        };
+        const geocoderControl = new MaplibreGeocoder(geocoderApi, {
+            maplibregl,
+            debounceSearch: 0,
+            minLength: 1,
+            limit: 5,
+            showResultsWhileTyping: true,
+            collapsed: true
+        });
+        geocoderControl.on("result", function (result) {
+            // blur input if on mobile view
+            // so that the android keyboard doesn't continue to appear on the screen
+            if (window.innerWidth <= 1000) {
+                geocoderControl._inputEl.blur();
+            }
+        });
+        map.addControl(geocoderControl, "top-left");
+
+        map.addControl(new maplibregl.GeolocateControl({
+            positionOptions: {
+                enableHighAccuracy: true
+            },
+            trackUserLocation: true,
+            showUserHeading: true
+        }), "top-right");
+
+        map.on('style.load', () => {
+            fetch( "https://gocarta.s3.us-east-2.amazonaws.com/public/data/simple_bus_routes/v1/data.lines.geojson")
+                .then(function (response) { return response.json(); })
+                .then(function (geojson) {
+                    console.log("geojson:", geojson);
+
+                    map.addSource("simple-bus-routes", { type: "geojson", data: geojson });
+                    map.addLayer({
+                        id: "simple-bus-routes-layer",
+                        type: "line",
+                        source: "simple-bus-routes",
+                        layout: {
+                            "line-join": "round",
+                            "line-cap": "round"
+                        },
+                        paint: {
+                            "line-color": "#0b67e4", 
+                            "line-width": 5,
+                            "line-opacity": .6
+                        }
+                    });
+                });
+            });
+
+            (async function () {
+                // load initial data
+                const url = "https://gocarta.s3.us-east-2.amazonaws.com/public/data/gtfsrt_vehicle_positions/v1/data.points.geojson";
+
+                fetch(url)
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        app.state.markers.buses = [];
+                        const features = data.features;
+                        for (let i = 0; i < features.length; i++) {
+                            const feat = features[i];
+                            const props = feat.properties;
+                            if (feat.geometry.type !== "Point") continue;
+                            const point = feat.geometry.coordinates;
+                            if (!point) continue;
+
+                            const vid = props.vehicle_id;
+                            const route_id = props.route_id;
+
+                            if (route_id !== "15" && route_id !== "33") {
+                                console.log("skipping vehicle " + vid + " because it's not running a shuttle route");
+                                continue;
+                            }
+
+                            // create a DOM element for the marker
+                            const el = document.createElement('div');
+                            el.className = "marker-shuttle";
+                            el.innerHTML = `<img src="./public/assets/bus.png">`;
+                            el.setAttribute("data-vid", vid);
+
+                            const marker = new maplibregl.Marker( { element: el })
+                                .setLngLat(point)
+                                .addTo(map);
+                            app.state.markers.buses.push(marker);
+                        }
+
+
+                        // set interval for updates
+                        setInterval(function () {
+                            fetch(url)
+                                .then(function (response) { return response.json(); })
+                                .then(function (data) {
+                                    const features = data.features;
+                                    for (let i = 0; i < features.length; i++) {
+                                        const feat = features[i];
+                                        const props = feat.properties;
+                                        if (feat.geometry.type !== "Point") continue;
+                                        const point = feat.geometry.coordinates;
+                                        if (!point) continue;
+
+                                        const vid = props.vehicle_id;
+                                        const route_id = props.route_id;
+                            
+                                        // find pre-existing marker
+                                        const marker = app.state.markers.buses.find(function (marker) {
+                                            return marker.getElement().getAttribute("data-vid") === vid;
+                                        });
+                                        if (marker) {
+                                            // check if vehicle still running shuttle route
+                                            if (route_id === "15" || route_id === "33") {
+                                                const lngLat = marker.getLngLat();
+                                                if (lngLat.lng !== point[0] || lngLat.lat !== point[1]) {
+                                                    marker.setLngLat(point);
+                                                    console.log("updated lnglat");
+                                                }
+                                            } else {
+                                                console.log("removing vehicle " + vid + " because it's no longer running a shuttle route");
+                                                map.remove(marker);
+                                            }
+                                        } else {
+
+                                        }
+                                    }
+                                });
+
+                        }, 500);
+                    });
+            })();    
+    </script>
+</body>
+</html>
